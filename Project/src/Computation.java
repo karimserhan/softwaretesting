@@ -15,7 +15,7 @@ public class Computation {
     }
 
     /**
-     * Adds a node to the computation. Also adds to this node from the previous event
+     * Adds a event to the computation. Also adds edge to this event from the previous event
      * on the same process (if this is not the initial event)
      * Should be called on increasing order of event id per process
      * @param processId ID of the process on which this event has run
@@ -48,7 +48,7 @@ public class Computation {
     }
 
     /**
-     * Adds a message between two event. No need to call this for consecutive events
+     * Adds a message between two events. No need to call this for consecutive events
      * on the same process as this is automatically taken care of in addEvent
      * Precondition: addEvent should be called on both e1 and e2
      * @param e1 start node of edge
@@ -93,6 +93,9 @@ public class Computation {
     }
 
     public static Computation parseComputation(String input) {
+        /**
+         * See input format in the comments of toString()
+         */
         Computation computation = new Computation();
         String[] lines = input.split("\n");
 
@@ -148,7 +151,7 @@ public class Computation {
     }
 
     /**
-     * To output computation to file
+     * Represenation of computation in a human-readable format
      */
     @Override
     public String toString() {
@@ -232,7 +235,8 @@ public class Computation {
      * @return true if the computation with the added (e1, e2) message has no cycles, false otherwise
      */
     private boolean repOk(int e1, int e2) {
-        // To check if there's a cycle after adding (e1, e2), we can check if e1 is reachable from e2
+        // To check if there's a cycle after adding (e1, e2), we can check if
+        // e1 is reachable from e2
         return !isReachable(e2, e1);
     }
 

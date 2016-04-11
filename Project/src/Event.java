@@ -4,7 +4,7 @@ import java.util.Set;
 /**
  * Class that represents an event in a computation
  */
-public class Event implements Comparable<Event> {
+public class Event {
     private int eventId;
     private int processId;
     private Set<String> readVariables;
@@ -52,14 +52,6 @@ public class Event implements Comparable<Event> {
     @Override
     public String toString() {
         return new Integer(eventId).toString();
-    }
-
-    @Override
-    public int compareTo(Event o) {
-        if (o == null) { throw new NullPointerException(); }
-        Integer me = new Integer(this.getEventId());
-        Integer other = new Integer(o.getEventId());
-        return me.compareTo(other);
     }
 
     @Override

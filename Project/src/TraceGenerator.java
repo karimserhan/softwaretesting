@@ -30,6 +30,10 @@ public class TraceGenerator {
         this.maxNbrOfVariables = maxNbrOfVariables;
     }
 
+    /**
+     * Generates random computation according to the params of this class
+     * @return the generated computation
+     */
     public Computation generateTrace() {
         Computation computation = new Computation();
 
@@ -52,7 +56,6 @@ public class TraceGenerator {
         int eventId = 0;
         int processId = 0;
 
-        // first add events
         for (processId = 0; processId < nbrOfProcesses; processId++) {
             int nbrOfEvents = generateRandomVariable(minEventsPerProcess, maxEventsPerProcess);
 
@@ -133,7 +136,7 @@ public class TraceGenerator {
      * Generates a random variable within a certain range uniformly
      * @param min lower threshold of range
      * @param max upper threshold of range
-     * @return
+     * @return random numebr in [min, max]
      */
     private int generateRandomVariable(int min, int max) {
         return min + (int)((max-min)*Math.random());
