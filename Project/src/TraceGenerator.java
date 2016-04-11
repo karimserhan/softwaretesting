@@ -1,5 +1,3 @@
-import sun.rmi.runtime.Log;
-
 /**
  * This class generates random computation traces according to
  * some parameters.
