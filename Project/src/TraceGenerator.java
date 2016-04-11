@@ -1,150 +1,143 @@
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.util.LinkedList;
-import java.util.List;
+import sun.rmi.runtime.Log;
 
 /**
  * This class generates random computation traces according to
  * some parameters.
  */
 public class TraceGenerator {
-    private Computation computation;
-    private List<List<Integer>> trace;
-    private List<Message> messages;
-
     int minNbrProcessors;
     int maxNbrProcessors;
     int minEventsPerProcess;
     int maxEventsPerProcess;
     int minNbrMsgs;
     int maxNbrMsgs;
+    int minNbrOfVariables;
+    int maxNbrOfVariables;
 
     public TraceGenerator(int minNbrProcessors,
                           int maxNbrProcessors,
                           int minEventsPerProcess,
                           int maxEventsPerProcess,
                           int minNbrMsgs,
-                          int maxNbrMsgs) {
-        this.trace = new LinkedList<>();
-        this.messages = new LinkedList<>();
+                          int maxNbrMsgs,
+                          int minNbrOfVariables,
+                          int maxNbrOfVariables) {
         this.minNbrProcessors = minNbrProcessors;
         this.maxNbrProcessors = maxNbrProcessors;
         this.minEventsPerProcess = minEventsPerProcess;
         this.maxEventsPerProcess = maxEventsPerProcess;
         this.minNbrMsgs = minNbrMsgs;
         this.maxNbrMsgs = maxNbrMsgs;
+        this.minNbrOfVariables = minNbrOfVariables;
+        this.maxNbrOfVariables = maxNbrOfVariables;
     }
 
-    public void generatreTraceFile(String outputFileName) throws FileNotFoundException {
-        String trace_str = "";
+    public Computation generateTrace() {
+        Computation computation = new Computation();
 
-        int nbrProcessors = minNbrProcessors
-                + (int)((maxNbrProcessors-minNbrProcessors)*Math.random());
-        int eventID = 0;
-        for (int i = 0; i < nbrProcessors; i++) {
-            String localTrace_str = "P" + i + ": ";
-            List<Integer> localTrace = new LinkedList<>();
+        addEvents(computation);
+        addMessages(computation);
+        addVariables(computation);
 
-            int nbrEvents = minEventsPerProcess
-                    + (int)((maxEventsPerProcess-minEventsPerProcess)*Math.random());
-            int maxEventID = eventID + nbrEvents - 1;
-            String delim = "";
-            while (eventID <= maxEventID) {
-                String predValue = (Math.random() < 0.5) ? "T" : "F";
-                localTrace_str += delim + eventID + "(" + predValue + ")";
-                delim = ", ";
-                localTrace.add(eventID);
-                eventID++;
-            }
-            trace_str += localTrace_str + "\n";
-            trace.add(localTrace);
-        }
-
-        String messages_str = "";
-
-        int nbrMsgs = minNbrMsgs + (int)((maxNbrMsgs-minNbrMsgs)*Math.random());
-        int[] minSendEventPerProcess = new int[nbrProcessors];
-        int msgCount = 0;
-        while (true) {
-            // choose processes
-            int sender = (int)(Math.random()*nbrProcessors);
-            int receiver = (int)(Math.random()*nbrProcessors);
-            if (sender == receiver) { continue; }
-
-            // choose events
-            int sendEvt = trace.get(sender).get(0)
-                    + (int)(Math.random()*trace.get(sender).size());
-            int receiveEvt = trace.get(receiver).get(0)
-                    + (int)(Math.random()*trace.get(receiver).size());
-
-            // add message
-            if (checkValidity(new Message(sendEvt, receiveEvt))) {
-                messages.add(new Message(sendEvt, receiveEvt));
-                messages_str += sendEvt + "," + receiveEvt + "\n";
-                msgCount++;
-                if (msgCount == nbrMsgs) { break; }
-            }
-        }
-
-        // write to file
-        PrintWriter writer = new PrintWriter(outputFileName);
-        writer.println(trace_str.trim() + "\n" + messages_str.trim());
-        writer.close();
+        return computation;
     }
 
     /**
-     * Checks whether msg can be added without creating any cycles
+     * Adds events according to the params to the computation
+     * @param computation the computation to be populated
      */
-    private boolean checkValidity(Message msg) {
-        return !isReachable(msg.receiveEvt, msg.sendEvt);
+    private void addEvents(Computation computation) {
+        Logger.log("Adding event to computation");
+
+        int nbrOfProcesses = generateRandomVariable(minNbrProcessors, maxNbrProcessors);
+
+        int eventId = 0;
+        int processId = 0;
+
+        // first add events
+        for (processId = 0; processId < nbrOfProcesses; processId++) {
+            int nbrOfEvents = generateRandomVariable(minEventsPerProcess, maxEventsPerProcess);
+
+            for (int eventIndex = 0; eventIndex < nbrOfEvents; eventIndex++) {
+                computation.addEvent(processId, eventId);
+                eventId++;
+            }
+        }
     }
 
+    /**
+     * Adds messages according to the params to the computation
+     * @param computation the computation to be populated
+     */
+    private void addMessages(Computation computation) {
+        Logger.log("Adding messages to computation");
 
-    private boolean isReachable(int start, int end) {
-        List<Integer> allNextEvts = findAllNextEvts(start);
-        for (int nextEvt : allNextEvts) {
-            if (nextEvt == end) {
-                return true;
+        int nbrOfProcesses = computation.getNumberOfProcesses();
+
+        // add messages
+        int nbrOfMessages = generateRandomVariable(minNbrMsgs, maxNbrMsgs);
+        int messagesAdded = 0;
+
+        while (messagesAdded < nbrOfMessages) {
+            // choose different start and end processes
+            int sender = generateRandomVariable(0, nbrOfProcesses-1);
+            int receiver = generateRandomVariable(0, nbrOfProcesses-1);
+            if (sender == receiver) {
+                continue;
             }
-            else if (isReachable(nextEvt, end)) {
-                return true;
+
+            // choose start and end events
+            int sendEvent = generateRandomVariable(computation.getInitialProcessEventId(sender),
+                    computation.getFinalProcessEventId(sender));
+            int receiveEvent = generateRandomVariable(computation.getInitialProcessEventId(receiver),
+                    computation.getFinalProcessEventId(receiver));
+
+            // try to add the message
+            if (computation.addMessage(sendEvent, receiveEvent)) {
+                messagesAdded++;
             }
         }
-        return false;
     }
 
-    private List<Integer> findAllNextEvts(int evt) {
-        List<Integer> allNextEvts = new LinkedList<>();
-        // search in trace
-        boolean stop = false;
-        for (int i = 0; i < trace.size(); i++) {
-            List<Integer> localTrace = trace.get(i);
-            for (int j = 0; j < localTrace.size(); j++) {
-                if (localTrace.get(j) == evt && j != (localTrace.size()-1)) {
-                    allNextEvts.add(localTrace.get(j+1));
-                    stop = true;
-                    break;
-                }
-            }
-            if (stop) { break; }
-        }
-        // search in messages
-        for (int i = 0; i < messages.size(); i++) {
-            if (messages.get(i).sendEvt == evt) {
-                allNextEvts.add(messages.get(i).receiveEvt);
-            }
-        }
+    /**
+     * Adds shared variables according to the params to the computation
+     * @param computation the computation to be populated
+     */
+    private void addVariables(Computation computation) {
+        Logger.log("Adding variables to computation");
 
-        return allNextEvts;
+        int nbrOfProcesses = computation.getNumberOfProcesses();
+
+        int nbrOfVariables = generateRandomVariable(minNbrOfVariables, maxNbrMsgs);
+
+        for (int varId = 0; varId < nbrOfVariables; varId++) {
+            String variable = "x" + varId;
+
+            // choose a process
+            int processId = generateRandomVariable(0, nbrOfProcesses-1);
+
+            // choose an event
+            int eventId = generateRandomVariable(computation.getInitialProcessEventId(processId),
+                    computation.getFinalProcessEventId(processId));
+            Event event = computation.getEventById(eventId);
+
+            // choose an access mode
+            boolean read = (Math.random() < 0.5) ? true : false;
+            if (read) {
+                event.addReadVariable(variable);
+            } else {
+                event.addWriteVariable(variable);
+            }
+        }
     }
 
-    public class Message {
-        int sendEvt;
-        int receiveEvt;
-
-        public Message (int sendEvt, int receiveEvt) {
-            this.sendEvt = sendEvt;
-            this.receiveEvt = receiveEvt;
-        }
+    /**
+     * Generates a random variable within a certain range uniformly
+     * @param min lower threshold of range
+     * @param max upper threshold of range
+     * @return
+     */
+    private int generateRandomVariable(int min, int max) {
+        return min + (int)((max-min)*Math.random());
     }
 }

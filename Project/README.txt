@@ -1,2 +1,0 @@
-- Our source code is located under the src/ directory
-- The program is already compiled into the file PredicateControl.jar and can be run simply by double clicking ont the jar

@@ -7,12 +7,12 @@ import java.util.Set;
  * Class that represents an event in a computation
  */
 public class Event implements Comparable<Event> {
-    int eventId;
-    int processId;
-    Set<String> readVariables;
-    Set<String> writeVariables;
+    private int eventId;
+    private int processId;
+    private Set<String> readVariables;
+    private Set<String> writeVariables;
 
-    public Event(int eventId, int processId) {
+    public Event(int processId, int eventId) {
         this.eventId = eventId;
         this.processId = processId;
         this.readVariables = new HashSet<>();
@@ -49,6 +49,11 @@ public class Event implements Comparable<Event> {
 
     public void addWriteVariable(String variableName) {
         writeVariables.add(variableName);
+    }
+
+    @Override
+    public String toString() {
+        return new Integer(eventId).toString();
     }
 
     @Override
