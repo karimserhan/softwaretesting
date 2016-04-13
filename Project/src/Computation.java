@@ -7,11 +7,13 @@ public class Computation {
     private Map<Integer, Event> events;
     private Map<Integer, Set<Integer>> messages; // also includes edges on single processor
     private Map<Integer, List<Integer>> processesEvents;
+    private Map<Integer, Set<Integer>> reachableEvents;
 
     public Computation() {
         events = new HashMap<>();
         messages = new HashMap<>();
         processesEvents = new HashMap<>();
+        reachableEvents = new HashMap<>();
     }
 
     /**
@@ -92,61 +94,6 @@ public class Computation {
         return events.get(eventId);
     }
 
-    public static Computation parseComputation(String input) {
-        Computation computation = new Computation();
-        String[] lines = input.split("\n");
-
-        int i = 0;
-        int evtId = 0;
-        for (i = 0; i < lines.length; i++) {
-            if (lines[i].equals("READ")) { break; }
-            String[] fields = lines[i].split(":");
-            int pid = Integer.parseInt(fields[0]);
-            int nbrOfEvents = Integer.parseInt(fields[1]);
-            for (int j = 0; j < nbrOfEvents; j++) {
-                computation.addEvent(pid, evtId);
-                evtId++;
-            }
-        }
-
-        i++;
-        for (; i < lines.length; i++) {
-            if (lines[i].equals("WRITE")) { break; }
-            String[] fields = lines[i].split(":");
-            String[] vars = fields[1].split(",");
-            evtId = Integer.parseInt(fields[0]);
-            Event evt = computation.getEventById(evtId);
-            for (String var : vars) {
-                evt.addReadVariable(var);
-            }
-        }
-
-        i++;
-        for (; i < lines.length; i++) {
-            if (lines[i].equals("MESSAGES")) { break; }
-            String[] fields = lines[i].split(":");
-            String[] vars = fields[1].split(",");
-            evtId = Integer.parseInt(fields[0]);
-            Event evt = computation.getEventById(evtId);
-            for (String var : vars) {
-                evt.addWriteVariable(var);
-            }
-        }
-
-        i++;
-        for (; i < lines.length; i++) {
-            String[] fields = lines[i].split(":");
-            String[] destinations = fields[1].split(",");
-            int sourceId = Integer.parseInt(fields[0]);
-            for (String dest : destinations) {
-                int destId = Integer.parseInt(dest);
-                computation.addMessage(sourceId, destId);
-            }
-        }
-
-        return computation;
-    }
-
     /**
      * To output computation to file
      */
@@ -223,6 +170,35 @@ public class Computation {
         return events.equals(other.events) && messages.equals(other.messages)
                 && processesEvents.equals(other.processesEvents);
     }
+
+    public Map<Integer, Set<Integer>> getConcurrentEvents() {
+        this.reachableEvents.clear();
+        Map<Integer, Set<Integer>> concurrentEvents = new HashMap<>();
+
+        for (Map.Entry<Integer, Event> entry : this.events.entrySet()) {
+            int fromID = entry.getKey();
+            Set<Integer> unreachableEvents = new HashSet<>(this.events.keySet());
+            unreachableEvents.removeAll(getReachableEvents(fromID));
+            concurrentEvents.put(fromID, unreachableEvents);
+        }
+
+        return concurrentEvents;
+    }
+
+    private Set<Integer> getReachableEvents(int fromId) {
+        if (this.reachableEvents.containsKey(fromId)) {
+            Set<Integer> s = this.reachableEvents.get(fromId);
+            return s;
+        }
+
+        Set<Integer> reachableEvents = new HashSet<>();
+        for (Integer toId : this.messages.get(fromId)) {
+            reachableEvents.addAll(getReachableEvents(toId));
+        }
+
+        this.reachableEvents.put(fromId, reachableEvents);
+        return reachableEvents;
+    }
     
     /**
      * Checks whether adding a message to the computation would results in a cycle
@@ -252,5 +228,60 @@ public class Computation {
         }
 
         return false;
+    }
+
+    public static Computation parseComputation(String input) {
+        Computation computation = new Computation();
+        String[] lines = input.split("\n");
+
+        int i = 0;
+        int evtId = 0;
+        for (i = 0; i < lines.length; i++) {
+            if (lines[i].equals("READ")) { break; }
+            String[] fields = lines[i].split(":");
+            int pid = Integer.parseInt(fields[0]);
+            int nbrOfEvents = Integer.parseInt(fields[1]);
+            for (int j = 0; j < nbrOfEvents; j++) {
+                computation.addEvent(pid, evtId);
+                evtId++;
+            }
+        }
+
+        i++;
+        for (; i < lines.length; i++) {
+            if (lines[i].equals("WRITE")) { break; }
+            String[] fields = lines[i].split(":");
+            String[] vars = fields[1].split(",");
+            evtId = Integer.parseInt(fields[0]);
+            Event evt = computation.getEventById(evtId);
+            for (String var : vars) {
+                evt.addReadVariable(var);
+            }
+        }
+
+        i++;
+        for (; i < lines.length; i++) {
+            if (lines[i].equals("MESSAGES")) { break; }
+            String[] fields = lines[i].split(":");
+            String[] vars = fields[1].split(",");
+            evtId = Integer.parseInt(fields[0]);
+            Event evt = computation.getEventById(evtId);
+            for (String var : vars) {
+                evt.addWriteVariable(var);
+            }
+        }
+
+        i++;
+        for (; i < lines.length; i++) {
+            String[] fields = lines[i].split(":");
+            String[] destinations = fields[1].split(",");
+            int sourceId = Integer.parseInt(fields[0]);
+            for (String dest : destinations) {
+                int destId = Integer.parseInt(dest);
+                computation.addMessage(sourceId, destId);
+            }
+        }
+
+        return computation;
     }
 }
