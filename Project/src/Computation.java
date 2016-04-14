@@ -16,6 +16,13 @@ public class Computation {
         reachableEvents = new HashMap<>();
     }
 
+    public Computation(Computation otherComputation) {
+        events = new HashMap<>(otherComputation.events);
+        messages = new HashMap<>(otherComputation.messages);
+        processesEvents = new HashMap<>(otherComputation.processesEvents);
+        reachableEvents = new HashMap<>(otherComputation.reachableEvents);
+    }
+
     /**
      * Adds a event to the computation. Also adds edge to this event from the previous event
      * on the same process (if this is not the initial event)
@@ -171,13 +178,23 @@ public class Computation {
                 && processesEvents.equals(other.processesEvents);
     }
 
-    public Map<Integer, Set<Integer>> getConcurrentEvents() {
+    /**
+     * Merge this computation with the computation with otherComputation by
+     * adding all the messages in otherComputation
+     * Precondition: otherComputation must have the same events and processes as this one
+     * @param otherComputation the other computation
+     */
+    public void mergeWith(Computation otherComputation) {
+        // TODO
+    }
+
+    public Map<Integer, List<Integer>> getConcurrentEvents() {
         this.reachableEvents.clear();
-        Map<Integer, Set<Integer>> concurrentEvents = new HashMap<>();
+        Map<Integer, List<Integer>> concurrentEvents = new HashMap<>();
 
         for (Map.Entry<Integer, Event> entry : this.events.entrySet()) {
             int fromID = entry.getKey();
-            Set<Integer> unreachableEvents = new HashSet<>(this.events.keySet());
+            List<Integer> unreachableEvents = new ArrayList<>(this.events.keySet());
             unreachableEvents.removeAll(getReachableEvents(fromID));
             concurrentEvents.put(fromID, unreachableEvents);
         }
