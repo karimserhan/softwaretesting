@@ -185,7 +185,14 @@ public class Computation {
      * @param otherComputation the other computation
      */
     public void mergeWith(Computation otherComputation) {
-        // TODO
+        for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.messages.entrySet()) {
+            int fromID = otherEntry.getKey();
+            Set<Integer> toIDs = otherEntry.getValue();
+            if (this.messages.get(fromID)== null) {
+                this.messages.put(fromID, new HashSet<>());
+            }
+            this.messages.get(fromID).addAll(toIDs);
+        }
     }
 
     public Map<Integer, List<Integer>> getConcurrentEvents() {

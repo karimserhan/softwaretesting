@@ -43,14 +43,45 @@ public class App {
         Computation dupComp1 = new Computation(computation);
         Computation dupComp2 = new Computation(computation);
 
-        dupComp1.addMessage(fromId, toIds.get(toIndex));
-        dupComp2.addMessage(toIds.get(toIndex), fromId);
+        List<Computation> list1 = new ArrayList<>();
+        List<Computation> list2 = new ArrayList<>();
+        List<Computation> list3 = new ArrayList<>();
 
-        List<Computation> list1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
-        List<Computation> list2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
+        boolean satisfiesFilter1 = false;
+        boolean satisfiesFilter2 = false;
+
+        if (satisfiesFilter(computation, fromId, toIds.get(toIndex))) {
+            satisfiesFilter1 = true;
+            dupComp1.addMessage(fromId, toIds.get(toIndex));
+            list1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
+        }
+        if (satisfiesFilter(computation, toIds.get(toIndex), fromId)) {
+            satisfiesFilter1 = true;
+            dupComp2.addMessage(toIds.get(toIndex), fromId);
+            list2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
+        }
+
+        if (!satisfiesFilter1 && !satisfiesFilter2) {
+            list3 = generateComputationsForOneEntry(computation, fromId, toIds, toIndex + 1);
+        }
+
         list1.addAll(list2);
+        list1.addAll(list3);
 
         return list1;
+    }
+
+    private boolean satisfiesFilter(Computation computation, int e1, int e2) {
+        Set<String> writesOnE1 = computation.getEventById(e1).getWriteVariables();
+        Set<String> writesOnE2 = computation.getEventById(e2).getWriteVariables();
+        Set<String> readsOnE1 = computation.getEventById(e1).getReadVariables();
+        Set<String> readsOnE2 = computation.getEventById(e2).getReadVariables();
+
+        boolean hasRawDependency = readsOnE2.stream().anyMatch(x -> writesOnE1.contains(x));
+        boolean hasWawDependency = writesOnE2.stream().anyMatch(x -> writesOnE1.contains(x));
+        boolean hasWarDependency = writesOnE2.stream().anyMatch(x -> readsOnE1.contains(x));
+
+        return (hasRawDependency && raw) || (hasWarDependency && war) || (hasWawDependency && waw);
     }
 
     private List<Computation> mergeComputationLists(List<Computation> list1, List<Computation> list2) {
