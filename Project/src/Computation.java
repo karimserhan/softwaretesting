@@ -190,16 +190,20 @@ public class Computation {
 
     public Map<Integer, List<Integer>> getConcurrentEvents() {
         this.reachableEvents.clear();
-        Map<Integer, List<Integer>> concurrentEvents = new HashMap<>();
+        Map<Integer, List<Integer>> results = new HashMap<>();
 
         for (Map.Entry<Integer, Event> entry : this.events.entrySet()) {
             int fromID = entry.getKey();
-            List<Integer> unreachableEvents = new ArrayList<>(this.events.keySet());
-            unreachableEvents.removeAll(getReachableEvents(fromID));
-            concurrentEvents.put(fromID, unreachableEvents);
+            List<Integer> concurrentEvents = new ArrayList<>(this.events.keySet());
+            Set<Integer> reachableEvents = getReachableEvents(fromID);
+
+            concurrentEvents.removeAll(reachableEvents);
+            concurrentEvents.stream().filter(e -> !isReachable(e, fromID));
+
+            results.put(fromID, concurrentEvents);
         }
 
-        return concurrentEvents;
+        return results;
     }
 
     private Set<Integer> getReachableEvents(int fromId) {
