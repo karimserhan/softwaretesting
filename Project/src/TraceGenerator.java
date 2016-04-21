@@ -11,6 +11,8 @@ public class TraceGenerator {
     int maxNbrMsgs;
     int minNbrOfVariables;
     int maxNbrOfVariables;
+    int minRepeats;
+    int maxRepeats;
 
     public TraceGenerator(int minNbrProcessors,
                           int maxNbrProcessors,
@@ -19,7 +21,9 @@ public class TraceGenerator {
                           int minNbrMsgs,
                           int maxNbrMsgs,
                           int minNbrOfVariables,
-                          int maxNbrOfVariables) {
+                          int maxNbrOfVariables,
+                          int minRepeats,
+                          int maxRepeats) {
         this.minNbrProcessors = minNbrProcessors;
         this.maxNbrProcessors = maxNbrProcessors;
         this.minEventsPerProcess = minEventsPerProcess;
@@ -28,6 +32,8 @@ public class TraceGenerator {
         this.maxNbrMsgs = maxNbrMsgs;
         this.minNbrOfVariables = minNbrOfVariables;
         this.maxNbrOfVariables = maxNbrOfVariables;
+        this.minRepeats = minRepeats;
+        this.maxRepeats = maxRepeats;
     }
 
     /**
@@ -113,21 +119,24 @@ public class TraceGenerator {
 
         for (int varId = 0; varId < nbrOfVariables; varId++) {
             String variable = "x" + varId;
+            int repeats = generateRandomVariable(minRepeats, maxRepeats);
 
-            // choose a process
-            int processId = generateRandomVariable(0, nbrOfProcesses-1);
+            for (int r = 0; r < repeats; r++) {
+                // choose a process
+                int processId = generateRandomVariable(0, nbrOfProcesses - 1);
 
-            // choose an event
-            int eventId = generateRandomVariable(computation.getInitialProcessEventId(processId),
-                    computation.getFinalProcessEventId(processId));
-            Event event = computation.getEventById(eventId);
+                // choose an event
+                int eventId = generateRandomVariable(computation.getInitialProcessEventId(processId),
+                        computation.getFinalProcessEventId(processId));
+                Event event = computation.getEventById(eventId);
 
-            // choose an access mode
-            boolean read = (Math.random() < 0.5) ? true : false;
-            if (read) {
-                event.addReadVariable(variable);
-            } else {
-                event.addWriteVariable(variable);
+                // choose an access mode
+                boolean read = (Math.random() < 0.5) ? true : false;
+                if (read) {
+                    event.addReadVariable(variable);
+                } else {
+                    event.addWriteVariable(variable);
+                }
             }
         }
     }

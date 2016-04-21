@@ -20,7 +20,7 @@ public class App {
         Map<Integer, List<Integer>> concurrentEvents = computation.getConcurrentEvents();
 
         List<Computation> result = new ArrayList<>();
-        result.add(new Computation()); // add empty computation for 1st cross product merge to work
+        result.add(computation); // add original computation for 1st cross product merge to work
 
         for (Map.Entry<Integer, List<Integer>> entry : concurrentEvents.entrySet()) {
             int fromId = entry.getKey();

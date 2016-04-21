@@ -1,13 +1,12 @@
+import java.util.List;
+
 public class Test {
     public static void main(String[] args) {
-        TraceGenerator generator = new TraceGenerator(4,4,4,4,8,12,4,4);
-        Logger.log("Generating computation");
+        TraceGenerator generator = new TraceGenerator(4,4,4,4,8,12,4,4,3,5);
         Computation computation = generator.generateTrace();
-
-        // verify parsing and outputing is correct
-        Computation computation2 = Computation.parseComputation(computation.toString());
-        Logger.log("Parsing: " + computation.equals(computation2));
-        Logger.log("Outputting: " + computation.toString().equals(computation2.toString()));
-
+        System.out.println(computation);
+        App app = new App(false, true, false, false);
+        List<Computation> computations = app.generateComputations(computation);
+        System.out.println(computations.get(0));
     }
 }
