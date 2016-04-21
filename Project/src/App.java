@@ -51,14 +51,16 @@ public class App {
         boolean satisfiesFilter2 = false;
 
         if (satisfiesFilter(computation, fromId, toIds.get(toIndex))) {
-            satisfiesFilter1 = true;
-            dupComp1.addMessage(fromId, toIds.get(toIndex));
-            list1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
+            satisfiesFilter1 = dupComp1.addMessage(fromId, toIds.get(toIndex));
+            if (satisfiesFilter1) {
+                list1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
+            }
         }
         if (satisfiesFilter(computation, toIds.get(toIndex), fromId)) {
-            satisfiesFilter1 = true;
-            dupComp2.addMessage(toIds.get(toIndex), fromId);
-            list2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
+            satisfiesFilter2 = dupComp2.addMessage(toIds.get(toIndex), fromId);
+            if (satisfiesFilter2) {
+                list2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
+            }
         }
 
         if (!satisfiesFilter1 && !satisfiesFilter2) {

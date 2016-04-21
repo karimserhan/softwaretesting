@@ -65,8 +65,6 @@ public class Computation {
      * @param e2 end node of edge
      */
     public boolean addMessage(int e1, int e2) {
-        System.out.println(e1 + " -> " + e2);
-        System.out.println(this);
         if (!repOk(e1, e2)) {
             return false;
         }
@@ -210,6 +208,7 @@ public class Computation {
             concurrentEvents.removeAll(reachableEvents);
             concurrentEvents = concurrentEvents.stream().filter(e -> !isReachable(e, fromID))
                     .collect(Collectors.toList());
+            concurrentEvents.remove(new Integer(fromID));
 
             results.put(fromID, concurrentEvents);
         }
@@ -250,7 +249,6 @@ public class Computation {
     }
 
     private boolean isReachable(int eventFrom, int eventTo) {
-        System.out.println(eventFrom);
         Set<Integer> outgoingEvents = messages.get(eventFrom);
         if (outgoingEvents == null) {
             return false;
