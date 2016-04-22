@@ -7,12 +7,14 @@ import java.util.stream.Collectors;
 public class Computation {
     private Map<Integer, Event> events;
     private Map<Integer, Set<Integer>> messages; // also includes edges on single processor
+    private Map<Integer, Set<Integer>> syncMessages;
     private Map<Integer, List<Integer>> processesEvents;
     private Map<Integer, Set<Integer>> reachableEvents;
 
     public Computation() {
         events = new HashMap<>();
         messages = new HashMap<>();
+        syncMessages = new HashMap<>();
         processesEvents = new HashMap<>();
         reachableEvents = new HashMap<>();
     }
@@ -20,6 +22,7 @@ public class Computation {
     public Computation(Computation otherComputation) {
         events = new HashMap<>(otherComputation.events);
         messages = new HashMap<>(otherComputation.messages);
+        syncMessages = new HashMap<>(otherComputation.syncMessages);
         processesEvents = new HashMap<>(otherComputation.processesEvents);
         reachableEvents = new HashMap<>(otherComputation.reachableEvents);
     }
@@ -76,8 +79,37 @@ public class Computation {
         return true;
     }
 
+    /**
+     * Adds a sync message between two events. The function will call addMessage
+     * Precondition: addEvent should be called on both e1 and e2
+     * @param e1 start node of edge
+     * @param e2 end node of edge
+     */
+    public boolean addSyncMessage(int e1, int e2) {
+        if (!addMessage(e1, e2)) {
+            return false;
+        }
+        if (syncMessages.get(e1) == null) {
+            syncMessages.put(e1, new HashSet<Integer>());
+        }
+        syncMessages.get(e1).add(e2);
+        return true;
+    }
+
     public int getNumberOfProcesses() {
         return processesEvents.size();
+    }
+
+    public Map<Integer, Set<Integer>> getMessages() {
+        return messages;
+    }
+
+    public Map<Integer, Set<Integer>> getSyncMessages() {
+        return syncMessages;
+    }
+
+    public List<Integer> getProcessEvents(int processId) {
+        return processesEvents.get(processId);
     }
 
     public int getInitialProcessEventId(int processId) {
@@ -193,6 +225,15 @@ public class Computation {
                 this.messages.put(fromID, new HashSet<>());
             }
             this.messages.get(fromID).addAll(toIDs);
+        }
+
+        for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.syncMessages.entrySet()) {
+            int fromID = otherEntry.getKey();
+            Set<Integer> toIDs = otherEntry.getValue();
+            if (this.syncMessages.get(fromID)== null) {
+                this.syncMessages.put(fromID, new HashSet<>());
+            }
+            this.syncMessages.get(fromID).addAll(toIDs);
         }
     }
 
