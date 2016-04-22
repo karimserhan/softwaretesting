@@ -153,7 +153,7 @@ public class MainFrame extends JFrame {
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("MainFrame");
+        JFrame frame = new JFrame("Choose parameters");
         frame.setContentPane(new MainFrame().mainPanel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();

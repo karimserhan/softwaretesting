@@ -10,9 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Created by Karim on 4/21/2016.
- */
 public class TraceFrame {
     private JPanel mainPanel;
     private JPanel tracePanel;
@@ -144,6 +141,7 @@ public class TraceFrame {
         this.tracePanel.add(new TracePanel(originalComputation), BorderLayout.NORTH);
 
         this.computationComboBox.addItem("Original Computation");
+        this.computationComboBox.putClientProperty("JComboBox.isTableCellEditor", Boolean.TRUE);
         for (int i = 0; i < generatedComputations.size(); i++) {
             this.computationComboBox.addItem("Generated Computation #" + (i+1));
         }
@@ -173,7 +171,7 @@ public class TraceFrame {
     }
 
     public static void showFrame(Computation originalComputation, java.util.List<Computation> generatedComputations) {
-        JFrame frame = new JFrame("TraceFrame");
+        JFrame frame = new JFrame("Traces");
         frame.setContentPane(new TraceFrame(originalComputation, generatedComputations).mainPanel);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.pack();
