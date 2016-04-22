@@ -5,6 +5,8 @@ public class App {
     private boolean raw;
     private boolean war;
     private boolean waw;
+    private Set<Computation> result;
+    private Set<Computation> accumulatedResult;
 
     public App(boolean merge, boolean raw, boolean war, boolean waw) {
         this.merge = merge;
@@ -16,23 +18,33 @@ public class App {
     public List<Computation> generateComputations(Computation computation) {
         Map<Integer, List<Integer>> concurrentEvents = computation.getConcurrentEvents();
 
-        List<Computation> result = new ArrayList<>();
+        result = new HashSet<>();
         result.add(new Computation(computation)); // add original computation for 1st cross product merge to work
+        accumulatedResult = new HashSet<>();
 
         for (Map.Entry<Integer, List<Integer>> entry : concurrentEvents.entrySet()) {
             int fromId = entry.getKey();
             List<Integer> toIds = entry.getValue();
-            List<Computation> list = generateComputationsForOneEntry(new Computation(computation), fromId, toIds, 0);
-            result = mergeComputationLists(result, list);
+            Set<Computation> set = generateComputationsForOneEntry(new Computation(computation), fromId, toIds, 0);
+            result = mergeComputationSets(result, set);
+            accumulatedResult.addAll(result);
         }
 
-        return result;
+        // TODO: Try to fix later
+        Set<Computation> finalResult = new HashSet<>();
+        for (Computation customer: result) {
+            if (!finalResult.contains(customer)) {
+                finalResult.add(customer);
+            }
+        }
+
+        return new ArrayList<>(finalResult);
     }
 
-    private List<Computation> generateComputationsForOneEntry(Computation computation, int fromId,
+    private Set<Computation> generateComputationsForOneEntry(Computation computation, int fromId,
                                                               List<Integer> toIds, int toIndex) {
         if (toIndex == toIds.size()) {
-            List<Computation> c = new LinkedList<>();
+            Set<Computation> c = new HashSet<>();
             c.add(computation);
             return c;
         }
@@ -41,9 +53,9 @@ public class App {
             int x = 6;
         }
 
-        List<Computation> list1 = new LinkedList<>();
-        List<Computation> list2 = new LinkedList<>();
-        List<Computation> list3 = new LinkedList<>();
+        Set<Computation> set1 = new HashSet<>();
+        Set<Computation> set2 = new HashSet<>();
+        Set<Computation> set3 = new HashSet<>();
 
         boolean satisfiesFilter1 = false;
         boolean satisfiesFilter2 = false;
@@ -54,26 +66,28 @@ public class App {
 
         if (satisfiesFilter(computation, fromId, toIds.get(toIndex))) {
             satisfiesFilter1 = dupComp1.addSyncMessage(fromId, toIds.get(toIndex));
-            if (satisfiesFilter1) {
-                list1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
+            if (satisfiesFilter1 && !accumulatedResult.contains(dupComp1)) {
+                set1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
             }
         }
 
         if (satisfiesFilter(computation, toIds.get(toIndex), fromId)) {
             satisfiesFilter2 = dupComp2.addSyncMessage(toIds.get(toIndex), fromId);
-            if (satisfiesFilter2) {
-                list2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
+            if (satisfiesFilter2 && !accumulatedResult.contains(dupComp2)) {
+                set2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
             }
         }
 
         if (!satisfiesFilter1 && !satisfiesFilter2) {
-            list3 = generateComputationsForOneEntry(dupComp3, fromId, toIds, toIndex + 1);
+            if (!accumulatedResult.contains(dupComp3)) {
+                set3 = generateComputationsForOneEntry(dupComp3, fromId, toIds, toIndex + 1);
+            }
         }
 
-        list1.addAll(list2);
-        list1.addAll(list3);
+        set1.addAll(set2);
+        set1.addAll(set3);
 
-        return list1;
+        return set1;
     }
 
     private boolean satisfiesFilter(Computation computation, int e1, int e2) {
@@ -86,14 +100,15 @@ public class App {
         boolean hasWawDependency = writesOnE2.stream().anyMatch(x -> writesOnE1.contains(x));
         boolean hasWarDependency = writesOnE2.stream().anyMatch(x -> readsOnE1.contains(x));
 
-        return (hasRawDependency && raw) || (hasWarDependency && war) || (hasWawDependency && waw);
+        boolean dep = (hasRawDependency && raw) || (hasWarDependency && war) || (hasWawDependency && waw);
+        return dep;
     }
 
-    private List<Computation> mergeComputationLists(List<Computation> list1, List<Computation> list2) {
-        List<Computation> result = new ArrayList<>();
+    private Set<Computation> mergeComputationSets(Set<Computation> set1, Set<Computation> set2) {
+        Set<Computation> result = new HashSet<>();
 
-        for (Computation comp1 : list1) {
-            for (Computation comp2 : list2) {
+        for (Computation comp1 : set1) {
+            for (Computation comp2 : set2) {
                 Computation comp = comp1.mergeWith(comp2);
                 result.add(comp);
             }

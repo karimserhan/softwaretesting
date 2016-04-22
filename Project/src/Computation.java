@@ -20,10 +20,10 @@ public class Computation {
     }
 
     public Computation(Computation otherComputation) {
-        events = new HashMap<>(otherComputation.events);
-        messages = new HashMap<>(otherComputation.messages);
-        syncMessages = new HashMap<>(otherComputation.syncMessages);
-        processesEvents = new HashMap<>(otherComputation.processesEvents);
+        events = Utils.copyMapOfEvents(otherComputation.events);
+        messages = Utils.copyMapOfSets(otherComputation.messages);
+        syncMessages = Utils.copyMapOfSets(otherComputation.syncMessages);
+        processesEvents = Utils.copyMapOfLists(otherComputation.processesEvents);
         reachableEvents = new HashMap<>();
     }
 

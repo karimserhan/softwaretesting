@@ -10,6 +10,12 @@ public class Event {
     private Set<String> readVariables;
     private Set<String> writeVariables;
 
+    public Event(Event evt) {
+        this(evt.getProcessId(), evt.getEventId());
+        this.readVariables = new HashSet<>(evt.readVariables);
+        this.writeVariables = new HashSet<>(evt.writeVariables);
+    }
+
     public Event(int processId, int eventId) {
         this.eventId = eventId;
         this.processId = processId;
