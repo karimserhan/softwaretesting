@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class App {
     private boolean merge;
@@ -20,12 +17,12 @@ public class App {
         Map<Integer, List<Integer>> concurrentEvents = computation.getConcurrentEvents();
 
         List<Computation> result = new ArrayList<>();
-        result.add(computation); // add original computation for 1st cross product merge to work
+        result.add(new Computation(computation)); // add original computation for 1st cross product merge to work
 
         for (Map.Entry<Integer, List<Integer>> entry : concurrentEvents.entrySet()) {
             int fromId = entry.getKey();
             List<Integer> toIds = entry.getValue();
-            List<Computation> list = generateComputationsForOneEntry(computation, fromId, toIds, 0);
+            List<Computation> list = generateComputationsForOneEntry(new Computation(computation), fromId, toIds, 0);
             result = mergeComputationLists(result, list);
         }
 
@@ -35,20 +32,25 @@ public class App {
     private List<Computation> generateComputationsForOneEntry(Computation computation, int fromId,
                                                               List<Integer> toIds, int toIndex) {
         if (toIndex == toIds.size()) {
-            List<Computation> c = new ArrayList<>();
+            List<Computation> c = new LinkedList<>();
             c.add(computation);
             return c;
         }
 
-        Computation dupComp1 = new Computation(computation);
-        Computation dupComp2 = new Computation(computation);
+        if (toIndex == 2 && toIds.get(toIndex) == 6) {
+            int x = 6;
+        }
 
-        List<Computation> list1 = new ArrayList<>();
-        List<Computation> list2 = new ArrayList<>();
-        List<Computation> list3 = new ArrayList<>();
+        List<Computation> list1 = new LinkedList<>();
+        List<Computation> list2 = new LinkedList<>();
+        List<Computation> list3 = new LinkedList<>();
 
         boolean satisfiesFilter1 = false;
         boolean satisfiesFilter2 = false;
+
+        Computation dupComp1 = new Computation(computation);
+        Computation dupComp2 = new Computation(computation);
+        Computation dupComp3 = new Computation(computation);
 
         if (satisfiesFilter(computation, fromId, toIds.get(toIndex))) {
             satisfiesFilter1 = dupComp1.addSyncMessage(fromId, toIds.get(toIndex));
@@ -56,6 +58,7 @@ public class App {
                 list1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
             }
         }
+
         if (satisfiesFilter(computation, toIds.get(toIndex), fromId)) {
             satisfiesFilter2 = dupComp2.addSyncMessage(toIds.get(toIndex), fromId);
             if (satisfiesFilter2) {
@@ -64,7 +67,7 @@ public class App {
         }
 
         if (!satisfiesFilter1 && !satisfiesFilter2) {
-            list3 = generateComputationsForOneEntry(computation, fromId, toIds, toIndex + 1);
+            list3 = generateComputationsForOneEntry(dupComp3, fromId, toIds, toIndex + 1);
         }
 
         list1.addAll(list2);
@@ -91,8 +94,8 @@ public class App {
 
         for (Computation comp1 : list1) {
             for (Computation comp2 : list2) {
-                comp1.mergeWith(comp2);
-                result.add(comp1);
+                Computation comp = comp1.mergeWith(comp2);
+                result.add(comp);
             }
         }
 

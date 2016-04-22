@@ -1,6 +1,11 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.geom.Line2D;
+import java.net.CookieManager;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -11,6 +16,7 @@ import java.util.Set;
 public class TraceFrame {
     private JPanel mainPanel;
     private JPanel tracePanel;
+    private JComboBox computationComboBox;
 
     private class Coords {
         int x;
@@ -26,7 +32,8 @@ public class TraceFrame {
         private final int lineGap = 100;
         private final int padding = 60;
         private final int windowWidth = 1500;
-        private final int defaultStroke = 2;
+        private final int processStroke = 2;
+        private final int eventStroke = 10;
 
         private Computation computation;
         private HashMap<Integer, Coords> eventCoords;
@@ -43,48 +50,47 @@ public class TraceFrame {
         }
 
         @Override
-        public void paintComponent(Graphics g)
-        {
+        public void paintComponent(Graphics g) {
             drawTrace(g);
         }
 
         private void drawTrace(Graphics g) {
             Graphics2D g2 = (Graphics2D) g;
+            int processWidth = getWidth() - 2*padding;
 
-            int width = getWidth() - 2*padding;
-            int height = getHeight();
-
-            //  Draw lines starting from left to bottom
+            //  Draw process lines
             int x = padding;
             int y = lineGap;
 
             g2.setFont(new Font(null, Font.BOLD, 30));
-            g2.setStroke(new BasicStroke(defaultStroke));
-            for (int i = 0; i < computation.getNumberOfProcesses(); i++)
-            {
+            g2.setStroke(new BasicStroke(processStroke));
+            for (int i = 0; i < computation.getNumberOfProcesses(); i++) {
                 g2.drawString("P" + i, x - 50, y + 10);
-                g2.drawLine(x, y, x + width, y);
-                java.util.List<Integer> localTrace = computation.getProcessEvents(i);
-                int separation = width / (localTrace.size()+1);
-                int point_x = x + separation;
-                g2.setStroke(new BasicStroke(10));
-                for (int j = 0; j < localTrace.size(); j++) {
-                    Event evt = computation.getEventById(localTrace.get(j));
-                    g2.setColor(Color.BLACK);
-                    g2.drawLine(point_x, y, point_x, y);
-                    eventCoords.put(localTrace.get(j), new Coords(point_x, y));
-                    point_x += separation;
-                }
-                g2.setColor(Color.BLACK);
-
+                g2.drawLine(x, y, x + processWidth, y);
                 y += lineGap;
-                g2.setStroke(new BasicStroke(defaultStroke));
+            }
+
+            java.util.List<Set<Integer>> sortedEvents = computation.topologicalSort();
+            int maxDepth = sortedEvents.size();
+            int separation = processWidth / (maxDepth+1);
+            x = padding + separation; // x-coords for first-level events
+
+            g2.setStroke(new BasicStroke(eventStroke));
+            for (Set<Integer> sameLevelEvents : sortedEvents) {
+                for (int evtId : sameLevelEvents) {
+                    int processId = computation.getEventById(evtId).getProcessId();
+                    y = lineGap * (processId+1);
+                    g2.setColor(Color.BLACK);
+                    g2.drawLine(x, y, x, y);
+                    eventCoords.put(evtId, new Coords(x, y));
+                }
+                x += separation;
             }
 
             Map<Integer, Set<Integer>> allMessages = computation.getMessages();
             Map<Integer, Set<Integer>> syncMessages = computation.getSyncMessages();
 
-            for (Map.Entry<Integer, Set<Integer>> msg : computation.getMessages().entrySet()) {
+            for (Map.Entry<Integer, Set<Integer>> msg : allMessages.entrySet()) {
                 int sendId = msg.getKey();
                 for (int receiveId : msg.getValue()) {
                     if (syncMessages.get(sendId) == null || !syncMessages.get(sendId).contains(receiveId)) {
@@ -99,7 +105,7 @@ public class TraceFrame {
         private void drawMessage(Graphics g, int e, int f, Color color) {
             Graphics2D g2 = (Graphics2D) g;
             g2.setColor(color);
-            g2.setStroke(new BasicStroke(defaultStroke));
+            g2.setStroke(new BasicStroke(processStroke));
             Event sendEvt = computation.getEventById(e);
             Event recvEvt = computation.getEventById(f);
             if (sendEvt.getProcessId() == recvEvt.getProcessId()) {
@@ -129,16 +135,46 @@ public class TraceFrame {
 
     }
 
-    Computation computation;
+    Computation originalComputation;
+    java.util.List<Computation> generatedComputations;
 
-    TraceFrame(Computation computation) {
-        this.computation = computation;
-        this.tracePanel.add(new TracePanel(computation), BorderLayout.NORTH);
+    TraceFrame(Computation originalComputation, java.util.List<Computation> generatedComputations) {
+        this.originalComputation = originalComputation;
+        this.generatedComputations = generatedComputations;
+        this.tracePanel.add(new TracePanel(originalComputation), BorderLayout.NORTH);
+
+        this.computationComboBox.addItem("Original Computation");
+        for (int i = 0; i < generatedComputations.size(); i++) {
+            this.computationComboBox.addItem("Generated Computation #" + (i+1));
+        }
+
+        this.computationComboBox.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                computationComboBoxItemSelected(e);
+            }
+        });
     }
 
-    public static void showFrame(Computation computation) {
+    private void computationComboBoxItemSelected(ItemEvent e) {
+        if (e.getStateChange() == ItemEvent.SELECTED) {
+            int selectedIndex = computationComboBox.getSelectedIndex();
+            tracePanel.removeAll();
+
+            if (selectedIndex == 0) {
+                tracePanel.add(new TracePanel(originalComputation), BorderLayout.NORTH);
+            } else {
+                tracePanel.add(new TracePanel(generatedComputations.get(selectedIndex-1)), BorderLayout.NORTH);
+            }
+
+            tracePanel.revalidate();
+            tracePanel.repaint();
+        }
+    }
+
+    public static void showFrame(Computation originalComputation, java.util.List<Computation> generatedComputations) {
         JFrame frame = new JFrame("TraceFrame");
-        frame.setContentPane(new TraceFrame(computation).mainPanel);//new TracePanel(computation));
+        frame.setContentPane(new TraceFrame(originalComputation, generatedComputations).mainPanel);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.pack();
         frame.setVisible(true);

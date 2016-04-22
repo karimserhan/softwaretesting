@@ -131,8 +131,12 @@ public class MainFrame extends JFrame {
                 minNbrMsgs, maxNbrMsgs, minNbrVariables, maxNbrVariables, minRepeats, maxRepeats);
         Computation computation = generator.generateTrace();
 
+        // Generate controlled computations
+        App app = new App(false, true, true, true);
+        java.util.List<Computation> generatedComputations = app.generateComputations(computation);
+
         // open trace frame
-        TraceFrame.showFrame(computation);
+        TraceFrame.showFrame(computation, generatedComputations);
     }
 
     private void resetParamsBtnActionPerformed(ActionEvent e) {

@@ -24,7 +24,7 @@ public class Computation {
         messages = new HashMap<>(otherComputation.messages);
         syncMessages = new HashMap<>(otherComputation.syncMessages);
         processesEvents = new HashMap<>(otherComputation.processesEvents);
-        reachableEvents = new HashMap<>(otherComputation.reachableEvents);
+        reachableEvents = new HashMap<>();
     }
 
     /**
@@ -76,6 +76,7 @@ public class Computation {
             messages.put(e1, new HashSet<Integer>());
         }
         messages.get(e1).add(e2);
+
         return true;
     }
 
@@ -108,10 +109,6 @@ public class Computation {
         return syncMessages;
     }
 
-    public List<Integer> getProcessEvents(int processId) {
-        return processesEvents.get(processId);
-    }
-
     public int getInitialProcessEventId(int processId) {
         List<Integer> thisProcessEvents = processesEvents.get(processId);
 
@@ -134,9 +131,6 @@ public class Computation {
         return events.get(eventId);
     }
 
-    /**
-     * Represenation of computation in a human-readable format
-     */
     @Override
     public String toString() {
         /*
@@ -153,7 +147,7 @@ public class Computation {
         Followed by a line for every event that is a source of message(s) (not including same-process msgs)
         <evtID>:<destEvtID1>,<destEvtID2>...
          */
-        String output = "";
+        String output = super.toString() + "\n";
         for (Map.Entry<Integer,List<Integer>> eventForProcess : processesEvents.entrySet()) {
             int pid = eventForProcess.getKey();
             int size = eventForProcess.getValue().size();
@@ -212,31 +206,33 @@ public class Computation {
     }
 
     /**
-     * Merge this computation with the computation with otherComputation by
-     * adding all the messages in otherComputation
+     * Merge this computation with otherComputation by creating a new computation
+     * that has the messages in both
      * Precondition: otherComputation must have the same events and processes as this one
      * @param otherComputation the other computation
+     * @return the merged computation
      */
-    public void mergeWith(Computation otherComputation) {
+    public Computation mergeWith(Computation otherComputation) {
+        Computation result = new Computation(this);
+
         for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.messages.entrySet()) {
-            int fromID = otherEntry.getKey();
-            Set<Integer> toIDs = otherEntry.getValue();
-            if (this.messages.get(fromID)== null) {
-                this.messages.put(fromID, new HashSet<>());
+            int fromId = otherEntry.getKey();
+            for (int toId : otherEntry.getValue()) {
+                if (otherComputation.syncMessages.get(fromId) != null && otherComputation.syncMessages.get(fromId).contains(toId)) {
+                    result.addSyncMessage(fromId, toId);
+                } else {
+                    result.addMessage(fromId, toId);
+                }
             }
-            this.messages.get(fromID).addAll(toIDs);
         }
 
-        for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.syncMessages.entrySet()) {
-            int fromID = otherEntry.getKey();
-            Set<Integer> toIDs = otherEntry.getValue();
-            if (this.syncMessages.get(fromID)== null) {
-                this.syncMessages.put(fromID, new HashSet<>());
-            }
-            this.syncMessages.get(fromID).addAll(toIDs);
-        }
+        return result;
     }
 
+    /**
+     * Gets the concurrent events in this computation
+     * @return a map between each event and a list of all other events it is concurrent with
+     */
     public Map<Integer, List<Integer>> getConcurrentEvents() {
         this.reachableEvents.clear();
         Map<Integer, List<Integer>> results = new HashMap<>();
@@ -255,6 +251,54 @@ public class Computation {
         }
 
         return results;
+    }
+
+    /**
+     * Performs topological sort on the events in this computation
+     * @return a list where each entry is a set of events that happen before
+     * all the events in the subsequent elements
+     */
+    public List<Set<Integer>> topologicalSort() {
+        // compute inverse map of messages
+        Map<Integer, Set<Integer>> incomingEdges = new HashMap<>();
+        for (int evtId : events.keySet()) {
+            incomingEdges.put(evtId, new HashSet<>());
+        }
+        for (Map.Entry<Integer, Set<Integer>> entry : messages.entrySet()) {
+            int fromId = entry.getKey();
+            for (int toId : entry.getValue()) {
+                incomingEdges.get(toId).add(fromId);
+            }
+        }
+
+        List<Set<Integer>> sortedList = new ArrayList<>();
+        while (!incomingEdges.isEmpty()) {
+            sortedList.add(topologicalSortHelper(incomingEdges));
+        }
+        return sortedList;
+    }
+
+    public Set<Integer> topologicalSortHelper(Map<Integer, Set<Integer>> incomingEdges) {
+        // get all events with no incoming edge
+        Map<Integer,Set<Integer>> firstLevelEntries = incomingEdges.entrySet().stream()
+                .filter(e -> e.getValue() == null || e.getValue().isEmpty())
+                .collect(Collectors.toMap(e->e.getKey(), e->e.getValue()));
+        Set<Integer> firstLevelEvents = firstLevelEntries.keySet();
+
+        Map<Integer, Set<Integer>> remainingEntries = incomingEdges.entrySet().stream()
+                .filter(e -> e.getValue() != null && !e.getValue().isEmpty())
+                .collect(Collectors.toMap(e -> {
+                    return e.getKey();
+                }, e -> {
+                    Set<Integer> initialSet = e.getValue();
+                    initialSet.removeAll(firstLevelEvents);
+                    return initialSet;
+                }));
+
+        incomingEdges.clear();
+        incomingEdges.putAll(remainingEntries);
+
+        return firstLevelEvents;
     }
 
     private Set<Integer> getReachableEvents(int fromId) {
@@ -360,5 +404,36 @@ public class Computation {
         }
 
         return computation;
+    }
+
+    /**
+     * For debugging
+     */
+    public boolean hasCycle() {
+        for (Map.Entry<Integer, Event> entry : events.entrySet()) {
+            Set<Integer> ancestors = new HashSet<>();
+            if (hasBackEdge(entry.getKey(), ancestors)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasBackEdge(int source,Set<Integer> ancestors) {
+        if (ancestors.contains(source)) {
+            return true;
+        }
+        ancestors.add(source);
+        if (messages.get(source) == null) {
+            ancestors.remove(new Integer(source));
+            return false;
+        }
+        for (int dest : messages.get(source)) {
+            if (hasBackEdge(dest, ancestors)) {
+                return true;
+            }
+        }
+        ancestors.remove(new Integer(source));
+        return false;
     }
 }

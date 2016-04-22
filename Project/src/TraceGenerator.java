@@ -89,6 +89,7 @@ public class TraceGenerator {
             // choose different start and end processes
             int sender = generateRandomVariable(0, nbrOfProcesses-1);
             int receiver = generateRandomVariable(0, nbrOfProcesses-1);
+
             if (sender == receiver) {
                 continue;
             }
@@ -148,6 +149,6 @@ public class TraceGenerator {
      * @return random numebr in [min, max]
      */
     private int generateRandomVariable(int min, int max) {
-        return min + (int)((max-min)*Math.random());
+        return min + (int)((max+1-min)*Math.random());
     }
 }
