@@ -141,7 +141,6 @@ public class TraceFrame {
         this.tracePanel.add(new TracePanel(originalComputation), BorderLayout.NORTH);
 
         this.computationComboBox.addItem("Original Computation");
-        this.computationComboBox.putClientProperty("JComboBox.isTableCellEditor", Boolean.TRUE);
         for (int i = 0; i < generatedComputations.size(); i++) {
             this.computationComboBox.addItem("Generated Computation #" + (i+1));
         }
@@ -171,7 +170,7 @@ public class TraceFrame {
     }
 
     public static void showFrame(Computation originalComputation, java.util.List<Computation> generatedComputations) {
-        JFrame frame = new JFrame("Traces");
+        JFrame frame = new JFrame("TraceFrame");
         frame.setContentPane(new TraceFrame(originalComputation, generatedComputations).mainPanel);
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.pack();
