@@ -109,8 +109,8 @@ public class App {
 
         for (Computation comp1 : set1) {
             for (Computation comp2 : set2) {
-                Computation comp = comp1.mergeWith(comp2);
-                result.add(comp);
+                result.add(comp1.mergeWith(comp2));
+                result.add(comp2.mergeWith(comp1));
             }
         }
 

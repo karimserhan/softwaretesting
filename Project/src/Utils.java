@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.function.BooleanSupplier;
 
 /**
  * Class for utility functions
@@ -36,6 +37,14 @@ public class Utils {
         Map<Integer,List<Integer>> copy = new HashMap<>();
         for (Map.Entry<Integer,List<Integer>> entry : source.entrySet()) {
             copy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+    public static Map<String, Boolean> copyReachabilityCache(Map<String, Boolean> source) {
+        Map<String,Boolean> copy = new HashMap<>();
+        for (Map.Entry<String,Boolean> entry : source.entrySet()) {
+            copy.put(new String(entry.getKey()), new Boolean(entry.getValue()));
         }
         return copy;
     }

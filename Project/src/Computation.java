@@ -9,14 +9,16 @@ public class Computation {
     private Map<Integer, Set<Integer>> messages; // also includes edges on single processor
     private Map<Integer, Set<Integer>> syncMessages;
     private Map<Integer, List<Integer>> processesEvents;
-    private Map<Integer, Set<Integer>> reachableEvents;
+    private Map<Integer, Set<Integer>> reachableEventsCache;
+    private Map<String, Boolean> isReachableCache;
 
     public Computation() {
         events = new HashMap<>();
         messages = new HashMap<>();
         syncMessages = new HashMap<>();
         processesEvents = new HashMap<>();
-        reachableEvents = new HashMap<>();
+        reachableEventsCache = new HashMap<>();
+        isReachableCache = new HashMap<>();
     }
 
     public Computation(Computation otherComputation) {
@@ -24,7 +26,8 @@ public class Computation {
         messages = Utils.copyMapOfSets(otherComputation.messages);
         syncMessages = Utils.copyMapOfSets(otherComputation.syncMessages);
         processesEvents = Utils.copyMapOfLists(otherComputation.processesEvents);
-        reachableEvents = new HashMap<>();
+        reachableEventsCache = new HashMap<>();
+        isReachableCache = Utils.copyReachabilityCache(otherComputation.isReachableCache);
     }
 
     /**
@@ -77,6 +80,8 @@ public class Computation {
         }
         messages.get(e1).add(e2);
 
+        invalidateUnreachablity();
+
         return true;
     }
 
@@ -87,12 +92,18 @@ public class Computation {
      * @param e2 end node of edge
      */
     public boolean addSyncMessage(int e1, int e2) {
-        if (!addMessage(e1, e2)) {
+        // if e2 is reachable from e1 then ignore this message: this could happen because we
+        // might have already added sync messages that entail a happens before relation between e1 & e2
+        boolean orderSatisfied = isReachable(e1, e2);
+
+        if (orderSatisfied || !addMessage(e1, e2)) {
             return false;
         }
+
         if (syncMessages.get(e1) == null) {
             syncMessages.put(e1, new HashSet<Integer>());
         }
+
         syncMessages.get(e1).add(e2);
         return true;
     }
@@ -205,6 +216,24 @@ public class Computation {
                 && processesEvents.equals(other.processesEvents);
     }
 
+    @Override
+    public int hashCode() {
+        int sum = 0;
+        for (Map.Entry<Integer, Set<Integer>> entry : messages.entrySet()) {
+            int from = entry.getKey();
+            for (int to : entry.getValue()) {
+                sum += ((from+17)*(to+21));
+            }
+        }
+        for (Map.Entry<Integer, Set<Integer>> entry : syncMessages.entrySet()) {
+            int from = entry.getKey();
+            for (int to : entry.getValue()) {
+                sum += ((from+17)*(to+21));
+            }
+        }
+        return sum;
+    }
+
     /**
      * Merge this computation with otherComputation by creating a new computation
      * that has the messages in both
@@ -213,19 +242,30 @@ public class Computation {
      * @return the merged computation
      */
     public Computation mergeWith(Computation otherComputation) {
+        // TODO: fix merge
         Computation result = new Computation(this);
+        // result.syncMessages.clear();
 
         for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.messages.entrySet()) {
             int fromId = otherEntry.getKey();
             for (int toId : otherEntry.getValue()) {
-                if (otherComputation.syncMessages.get(fromId) != null && otherComputation.syncMessages.get(fromId).contains(toId)) {
-                    result.addSyncMessage(fromId, toId);
+                if (otherComputation.syncMessages.get(fromId) == null || !otherComputation.syncMessages.get(fromId).contains(toId)) {
+                    result.addMessage(fromId, toId);
                 } else {
+                    result.addSyncMessage(fromId, toId);
+                }
+            }
+        }
+        /*
+        for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.syncMessages.entrySet()) {
+            int fromId = otherEntry.getKey();
+            for (int toId : otherEntry.getValue()) {
+                if (otherComputation.syncMessages.get(fromId) == null || !otherComputation.syncMessages.get(fromId).contains(toId)) {
                     result.addMessage(fromId, toId);
                 }
             }
         }
-
+        */
         return result;
     }
 
@@ -234,7 +274,7 @@ public class Computation {
      * @return a map between each event and a list of all other events it is concurrent with
      */
     public Map<Integer, List<Integer>> getConcurrentEvents() {
-        this.reachableEvents.clear();
+        this.reachableEventsCache.clear();
         Map<Integer, List<Integer>> results = new HashMap<>();
 
         for (Map.Entry<Integer, Event> entry : this.events.entrySet()) {
@@ -302,8 +342,8 @@ public class Computation {
     }
 
     private Set<Integer> getReachableEvents(int fromId) {
-        if (this.reachableEvents.containsKey(fromId)) {
-            Set<Integer> s = this.reachableEvents.get(fromId);
+        if (this.reachableEventsCache.containsKey(fromId)) {
+            Set<Integer> s = this.reachableEventsCache.get(fromId);
             return s;
         }
 
@@ -313,10 +353,11 @@ public class Computation {
         }
 
         for (Integer toId : this.messages.get(fromId)) {
+            reachableEvents.add(toId);
             reachableEvents.addAll(getReachableEvents(toId));
         }
 
-        this.reachableEvents.put(fromId, reachableEvents);
+        this.reachableEventsCache.put(fromId, reachableEvents);
         return reachableEvents;
     }
     
@@ -334,21 +375,35 @@ public class Computation {
     }
 
     private boolean isReachable(int eventFrom, int eventTo) {
+        String key = eventFrom + "," + eventTo;
+        if (isReachableCache.containsKey(key)) {
+            return isReachableCache.get(key);
+        }
+
         Set<Integer> outgoingEvents = messages.get(eventFrom);
         if (outgoingEvents == null) {
+            isReachableCache.put(key, false);
             return false;
         }
 
         for (Integer intermediateEvent : outgoingEvents) {
             if (intermediateEvent.equals(eventTo)) {
+                isReachableCache.put(key, true);
                 return true;
             }
             if (isReachable(intermediateEvent, eventTo)) {
+                isReachableCache.put(key, true);
                 return true;
             }
         }
 
+        isReachableCache.put(key, false);
         return false;
+    }
+
+    private void invalidateUnreachablity() {
+        isReachableCache = isReachableCache.entrySet().stream().filter(e -> e.getValue())
+                .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
     }
 
     public static Computation parseComputation(String input) {

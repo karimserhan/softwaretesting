@@ -1,19 +1,17 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.geom.Line2D;
-import java.net.CookieManager;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class TraceFrame {
-    private JPanel mainPanel;
-    private JPanel tracePanel;
+public class TraceDialog extends JDialog {
+    private JPanel contentPane;
     private JComboBox computationComboBox;
+    private JPanel tracePanel;
+    private JButton buttonOK;
 
     private class Coords {
         int x;
@@ -26,11 +24,11 @@ public class TraceFrame {
     }
 
     public class TracePanel extends JPanel {
-        private final int lineGap = 100;
         private final int padding = 60;
         private final int windowWidth = 1500;
         private final int processStroke = 2;
         private final int eventStroke = 10;
+        private final int defaultLineGap = 150;
 
         private Computation computation;
         private HashMap<Integer, Coords> eventCoords;
@@ -42,7 +40,7 @@ public class TraceFrame {
 
         @Override
         public Dimension getPreferredSize() {
-            int size = (computation.getNumberOfProcesses() + 1) * lineGap;
+            int size = (computation.getNumberOfProcesses() + 1) * defaultLineGap;
             return new Dimension(windowWidth, size);
         }
 
@@ -53,7 +51,10 @@ public class TraceFrame {
 
         private void drawTrace(Graphics g) {
             Graphics2D g2 = (Graphics2D) g;
+
+            int nbrOfProcesses = computation.getNumberOfProcesses();
             int processWidth = getWidth() - 2*padding;
+            int lineGap = getHeight() / (nbrOfProcesses+1);
 
             //  Draw process lines
             int x = padding;
@@ -61,7 +62,7 @@ public class TraceFrame {
 
             g2.setFont(new Font(null, Font.BOLD, 30));
             g2.setStroke(new BasicStroke(processStroke));
-            for (int i = 0; i < computation.getNumberOfProcesses(); i++) {
+            for (int i = 0; i < nbrOfProcesses; i++) {
                 g2.drawString("P" + i, x - 50, y + 10);
                 g2.drawLine(x, y, x + processWidth, y);
                 y += lineGap;
@@ -75,11 +76,13 @@ public class TraceFrame {
             g2.setStroke(new BasicStroke(eventStroke));
             for (Set<Integer> sameLevelEvents : sortedEvents) {
                 for (int evtId : sameLevelEvents) {
-                    int processId = computation.getEventById(evtId).getProcessId();
+                    Event evt = computation.getEventById(evtId);
+                    int processId = evt.getProcessId();
                     y = lineGap * (processId+1);
                     g2.setColor(Color.BLACK);
                     g2.drawLine(x, y, x, y);
                     eventCoords.put(evtId, new Coords(x, y));
+                    drawEventDetails(g, evt, x, y);
                 }
                 x += separation;
             }
@@ -97,6 +100,21 @@ public class TraceFrame {
                     }
                 }
             }
+        }
+
+        private void drawEventDetails(Graphics g, Event evt, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g;
+            g2.setFont(new Font(null, Font.PLAIN, 20));
+
+            String readVars = Utils.joinCollection(evt.getReadVariables(), ", ");
+            String writeVars = Utils.joinCollection(evt.getWriteVariables(), ", ");
+            if (!readVars.equals("")) { readVars = "{" + readVars + "}"; }
+            if (!writeVars.equals("")) { writeVars = "{" + writeVars + "}"; }
+
+            g2.setColor(Color.BLUE);
+            g2.drawString(readVars, x-10, y-20);
+            g2.setColor(Color.RED);
+            g2.drawString(writeVars, x-10, y+20);
         }
 
         private void drawMessage(Graphics g, int e, int f, Color color) {
@@ -132,14 +150,17 @@ public class TraceFrame {
 
     }
 
-    Computation originalComputation;
-    java.util.List<Computation> generatedComputations;
+    private Computation originalComputation;
+    private java.util.List<Computation> generatedComputations;
 
-    TraceFrame(Computation originalComputation, java.util.List<Computation> generatedComputations) {
+    public TraceDialog(Computation originalComputation, java.util.List<Computation> generatedComputations) {
+        this.setTitle("Controlled Computation Viewer");
+
         this.originalComputation = originalComputation;
         this.generatedComputations = generatedComputations;
-        this.tracePanel.add(new TracePanel(originalComputation), BorderLayout.NORTH);
+        this.tracePanel.add(new TracePanel(originalComputation), BorderLayout.CENTER);
 
+        this.computationComboBox.putClientProperty("JComboBox.isTableCellEditor", Boolean.TRUE);
         this.computationComboBox.addItem("Original Computation");
         for (int i = 0; i < generatedComputations.size(); i++) {
             this.computationComboBox.addItem("Generated Computation #" + (i+1));
@@ -151,6 +172,10 @@ public class TraceFrame {
                 computationComboBoxItemSelected(e);
             }
         });
+
+        this.setContentPane(contentPane);
+        this.setModal(true);
+        this.pack();
     }
 
     private void computationComboBoxItemSelected(ItemEvent e) {
@@ -159,21 +184,13 @@ public class TraceFrame {
             tracePanel.removeAll();
 
             if (selectedIndex == 0) {
-                tracePanel.add(new TracePanel(originalComputation), BorderLayout.NORTH);
+                tracePanel.add(new TracePanel(originalComputation), BorderLayout.CENTER);
             } else {
-                tracePanel.add(new TracePanel(generatedComputations.get(selectedIndex-1)), BorderLayout.NORTH);
+                tracePanel.add(new TracePanel(generatedComputations.get(selectedIndex-1)), BorderLayout.CENTER);
             }
 
             tracePanel.revalidate();
             tracePanel.repaint();
         }
-    }
-
-    public static void showFrame(Computation originalComputation, java.util.List<Computation> generatedComputations) {
-        JFrame frame = new JFrame("TraceFrame");
-        frame.setContentPane(new TraceFrame(originalComputation, generatedComputations).mainPanel);
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.pack();
-        frame.setVisible(true);
     }
 }

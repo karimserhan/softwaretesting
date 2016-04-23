@@ -3,9 +3,9 @@ import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 
-public class MainFrame extends JFrame {
-
+public class MainFrame {
     class IntFilter extends DocumentFilter {
         @Override
         public void insertString(FilterBypass fb, int offset, String string,
@@ -57,6 +57,37 @@ public class MainFrame extends JFrame {
         }
     }
 
+    class GenerationTask extends SwingWorker<Void, Void> {
+        TraceGenerator generator;
+        App app;
+        Computation computation;
+        java.util.List<Computation> generatedComputations;
+
+        public GenerationTask(TraceGenerator generator, App app) {
+            this.generator = generator;
+            this.app = app;
+        }
+
+        @Override
+        public Void doInBackground() {
+            computation = generator.generateTrace();
+            generatedComputations = app.generateComputations(computation);
+            return null;
+        }
+
+        @Override
+        public void done() {
+            // re-enable GUI
+            enableAll();
+            // open trace dialog
+            JDialog traceDialog = new TraceDialog(computation, generatedComputations);
+            traceDialog.setLocationRelativeTo(mainFrame);
+            traceDialog.setVisible(true);
+        }
+    }
+
+    private static JFrame mainFrame;
+
     private JButton resetParamsBtn;
     private JButton generateParamsBtn;
     private JPanel mainPanel;
@@ -70,6 +101,10 @@ public class MainFrame extends JFrame {
     private JTextField minRepeatsTB;
     private JTextField maxRepeatsTB;
     private JTextField minNbrProcessesTB;
+    private JCheckBox flowDependenciesDependenciesCheckBox;
+    private JCheckBox warCheckBox;
+    private JCheckBox wawCheckBox;
+    private JCheckBox rawCheckBox;
 
     public MainFrame() {
         ((PlainDocument)minNbrProcessesTB.getDocument()).setDocumentFilter(new IntFilter());
@@ -126,17 +161,32 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // generate random computation
+        disableAll();
         TraceGenerator generator = new TraceGenerator(minNbrProcesses, maxNbrProcesses, minNbrEvents, maxNbrEvents,
                 minNbrMsgs, maxNbrMsgs, minNbrVariables, maxNbrVariables, minRepeats, maxRepeats);
-        Computation computation = generator.generateTrace();
+        App app = new App(false, rawCheckBox.isSelected(), warCheckBox.isSelected(), wawCheckBox.isSelected());
+        // run the task to generate computations
+        GenerationTask task = new GenerationTask(generator, app);
+        task.execute();
+    }
 
-        // Generate controlled computations
-        App app = new App(false, true, true, true);
-        java.util.List<Computation> generatedComputations = app.generateComputations(computation);
+    private void disableAll() {
+        mainFrame.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        setEnabled(mainFrame.getContentPane(), false);
+    }
+    private void enableAll() {
+        mainFrame.setCursor(Cursor.getDefaultCursor());
+        setEnabled(mainFrame.getContentPane(), true);
+    }
 
-        // open trace frame
-        TraceFrame.showFrame(computation, generatedComputations);
+    private void setEnabled(Component component, boolean enabled) {
+        component.setEnabled(enabled);
+        if (component instanceof Container) {
+            Container container = (Container)component;
+            for (Component child : container.getComponents()) {
+                setEnabled(child, enabled);
+            }
+        }
     }
 
     private void resetParamsBtnActionPerformed(ActionEvent e) {
@@ -165,10 +215,16 @@ public class MainFrame extends JFrame {
             e.printStackTrace();
         }
 
-        JFrame frame = new JFrame("MainFrame");
-        frame.setContentPane(new MainFrame().mainPanel);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.pack();
-        frame.setVisible(true);
+        mainFrame = new JFrame("Computation Parameters");
+        mainFrame.setResizable(false);
+        mainFrame.setContentPane(new MainFrame().mainPanel);
+        mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        mainFrame.pack();
+
+        // center
+        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
+        mainFrame.setLocation(dim.width / 2 - mainFrame.getSize().width / 2, dim.height / 2 - mainFrame.getSize().height / 2);
+
+        mainFrame.setVisible(true);
     }
 }
