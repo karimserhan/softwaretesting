@@ -158,7 +158,7 @@ public class Computation {
         Followed by a line for every event that is a source of message(s) (not including same-process msgs)
         <evtID>:<destEvtID1>,<destEvtID2>...
          */
-        String output = super.toString() + "\n";
+        String output = "";
         for (Map.Entry<Integer,List<Integer>> eventForProcess : processesEvents.entrySet()) {
             int pid = eventForProcess.getKey();
             int size = eventForProcess.getValue().size();
@@ -242,30 +242,45 @@ public class Computation {
      * @return the merged computation
      */
     public Computation mergeWith(Computation otherComputation) {
-        // TODO: fix merge
-        Computation result = new Computation(this);
-        // result.syncMessages.clear();
+        Computation result = new Computation();
+        result.events = Utils.copyMapOfEvents(otherComputation.events);
+        result.processesEvents = Utils.copyMapOfLists(otherComputation.processesEvents);
 
+        // first add all the messages
         for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.messages.entrySet()) {
             int fromId = otherEntry.getKey();
             for (int toId : otherEntry.getValue()) {
                 if (otherComputation.syncMessages.get(fromId) == null || !otherComputation.syncMessages.get(fromId).contains(toId)) {
                     result.addMessage(fromId, toId);
-                } else {
+                }
+            }
+        }
+
+        // add the sync messages in 'this'
+        for (Map.Entry<Integer, Set<Integer>> syncEntry : this.syncMessages.entrySet()) {
+            int fromId = syncEntry.getKey();
+            for (int toId : syncEntry.getValue()) {
+                // only add message if otherComputation doesn't already satisfy this happens before relation
+                if (!otherComputation.isReachable(fromId, toId)) {
                     result.addSyncMessage(fromId, toId);
                 }
             }
         }
-        /*
-        for (Map.Entry<Integer, Set<Integer>> otherEntry : otherComputation.syncMessages.entrySet()) {
-            int fromId = otherEntry.getKey();
-            for (int toId : otherEntry.getValue()) {
-                if (otherComputation.syncMessages.get(fromId) == null || !otherComputation.syncMessages.get(fromId).contains(toId)) {
-                    result.addMessage(fromId, toId);
+
+        for (Map.Entry<Integer, Set<Integer>> otherSyncEntry : otherComputation.syncMessages.entrySet()) {
+            int fromId = otherSyncEntry.getKey();
+            for (int toId : otherSyncEntry.getValue()) {
+                // only add message if this computation doesn't already satisfy this happens before relation
+                // also make sure that if we have a common message it is added
+                boolean sameMessage = this.syncMessages.get(fromId) != null && this.syncMessages.get(fromId).contains(toId);
+                if (!this.isReachable(fromId, toId) || sameMessage) {
+                    result.addSyncMessage(fromId, toId);
                 }
             }
         }
-        */
+        if (this.syncMessages.size()!=0 && otherComputation.syncMessages.size()!=0 && result.syncMessages.size()==0) {
+            System.out.println("YOU FUCKED UP");
+        }
         return result;
     }
 
@@ -286,6 +301,10 @@ public class Computation {
             concurrentEvents = concurrentEvents.stream().filter(e -> !isReachable(e, fromID))
                     .collect(Collectors.toList());
             concurrentEvents.remove(new Integer(fromID));
+
+            // don't include an entry that's already been included
+            concurrentEvents = concurrentEvents.stream().filter(e -> results.get(e) == null || !results.get(e).contains(fromID))
+                    .collect(Collectors.toList());
 
             results.put(fromID, concurrentEvents);
         }

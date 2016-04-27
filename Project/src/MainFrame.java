@@ -70,8 +70,13 @@ public class MainFrame {
 
         @Override
         public Void doInBackground() {
-            computation = generator.generateTrace();
-            generatedComputations = app.generateComputations(computation);
+            try {
+                computation = generator.generateTrace();
+                generatedComputations = app.generateComputations(computation);
+            } catch (Exception exp) {
+                System.out.println("Error: " + exp.getMessage());
+                exp.printStackTrace();
+            }
             return null;
         }
 

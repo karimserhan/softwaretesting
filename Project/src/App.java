@@ -6,7 +6,6 @@ public class App {
     private boolean war;
     private boolean waw;
     private Set<Computation> result;
-    private Set<Computation> accumulatedResult;
 
     public App(boolean merge, boolean raw, boolean war, boolean waw) {
         this.merge = merge;
@@ -20,21 +19,19 @@ public class App {
 
         result = new HashSet<>();
         result.add(new Computation(computation)); // add original computation for 1st cross product merge to work
-        accumulatedResult = new HashSet<>();
 
         for (Map.Entry<Integer, List<Integer>> entry : concurrentEvents.entrySet()) {
             int fromId = entry.getKey();
             List<Integer> toIds = entry.getValue();
             Set<Computation> set = generateComputationsForOneEntry(new Computation(computation), fromId, toIds, 0);
             result = mergeComputationSets(result, set);
-            accumulatedResult.addAll(result);
         }
 
         // TODO: Try to fix later
         Set<Computation> finalResult = new HashSet<>();
-        for (Computation customer: result) {
-            if (!finalResult.contains(customer)) {
-                finalResult.add(customer);
+        for (Computation comp : result) {
+            if (!finalResult.contains(comp) && !comp.equals(computation)) {
+                finalResult.add(comp);
             }
         }
 
@@ -47,10 +44,6 @@ public class App {
             Set<Computation> c = new HashSet<>();
             c.add(computation);
             return c;
-        }
-
-        if (toIndex == 2 && toIds.get(toIndex) == 6) {
-            int x = 6;
         }
 
         Set<Computation> set1 = new HashSet<>();
@@ -66,22 +59,20 @@ public class App {
 
         if (satisfiesFilter(computation, fromId, toIds.get(toIndex))) {
             satisfiesFilter1 = dupComp1.addSyncMessage(fromId, toIds.get(toIndex));
-            if (satisfiesFilter1 && !accumulatedResult.contains(dupComp1)) {
+            if (satisfiesFilter1) {
                 set1 = generateComputationsForOneEntry(dupComp1, fromId, toIds, toIndex + 1);
             }
         }
 
         if (satisfiesFilter(computation, toIds.get(toIndex), fromId)) {
             satisfiesFilter2 = dupComp2.addSyncMessage(toIds.get(toIndex), fromId);
-            if (satisfiesFilter2 && !accumulatedResult.contains(dupComp2)) {
+            if (satisfiesFilter2) {
                 set2 = generateComputationsForOneEntry(dupComp2, fromId, toIds, toIndex + 1);
             }
         }
 
         if (!satisfiesFilter1 && !satisfiesFilter2) {
-            if (!accumulatedResult.contains(dupComp3)) {
-                set3 = generateComputationsForOneEntry(dupComp3, fromId, toIds, toIndex + 1);
-            }
+            set3 = generateComputationsForOneEntry(dupComp3, fromId, toIds, toIndex + 1);
         }
 
         set1.addAll(set2);
